@@ -1,0 +1,19 @@
+# Secrets and local config
+.env
+*.key
+secrets.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

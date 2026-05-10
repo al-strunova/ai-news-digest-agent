@@ -1,0 +1,74 @@
+name: Daily AI/ML digest
+
+on:
+  schedule:
+    # 15:17 UTC daily. Lands ~8:17am PDT (about 8 months/year) and
+    # ~7:17am PST in winter. The non-round minute avoids GitHub Actions
+    # queue contention at the top of the hour, which can delay or skip
+    # scheduled runs entirely. Cron is always UTC; we accept the
+    # seasonal hour shift.
+    - cron: "17 16 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # required so we can commit data/ files back to the repo
+
+# Prevent overlapping runs (manual trigger during a scheduled run, etc.)
+# from racing on the git push at the end.
+concurrency:
+  group: digest
+  cancel-in-progress: false
+
+jobs:
+  run-digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run digest
+        # Only the key for the active config.LLM_PROVIDER is required at
+        # runtime; the others can be unset/empty.
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        run: python main.py
+
+      # Always commit state changes, even if the digest run failed:
+      # source_health.json and token_usage.jsonl are most useful when
+      # something went wrong, so we want them captured either way.
+      - name: Commit state changes
+        if: always()
+        run: |
+          set -e
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Add only files that exist; on the very first run token_usage.jsonl
+          # may not yet exist if main.py crashed before its first append.
+          for f in data/seen_items.json data/source_health.json data/token_usage.jsonl; do
+            if [ -f "$f" ]; then
+              git add "$f"
+            fi
+          done
+
+          if git diff --staged --quiet; then
+            echo "No state changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: update state files ($(date -u +%Y-%m-%d))"
+          git push
