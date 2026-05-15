@@ -15,5 +15,8 @@ venv/
 .idea/
 .vscode/
 
+# Local agent instructions
+CLAUDE.md
+
 # OS
 .DS_Store
