@@ -10,8 +10,9 @@ Run order:
   7. Persist state and observability:
        - source_health.json   always
        - token_usage.jsonl    always
-       - seen_items.json      only if email sent (so a failed send
-                              doesn't silently lose the items)
+       - seen_items.json      only if email sent AND curate succeeded
+                              (a failed send must not lose items, and
+                              an error email must not mark them seen)
   8. Exit 1 on curate failure or email failure, else 0
 """
 
@@ -197,8 +198,11 @@ def main() -> int:
         "email_error": email_error,
     })
 
-    # Only if email landed: mark items seen so they don't repeat
-    if message_id is not None:
+    # Mark items seen only when the digest email landed AND curation
+    # actually ran. An error email still sets message_id, but its items
+    # were never curated — leaving curate_error out here would silently
+    # burn them so the next (recovered) run never sees them again.
+    if message_id is not None and curate_error is None:
         now_iso = datetime.now(timezone.utc).isoformat()
         for it in unseen:
             seen[it.url] = now_iso
