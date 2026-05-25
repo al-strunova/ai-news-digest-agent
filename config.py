@@ -30,7 +30,7 @@ LLM_PROVIDER = "gemini"   # "anthropic" | "gemini"
 
 PROVIDER_MODEL = {
     "anthropic": "claude-sonnet-4-6",
-    "gemini": "gemini-3.1-flash-lite-preview",
+    "gemini": "gemini-3.1-flash-lite",
 }
 MODEL = PROVIDER_MODEL[LLM_PROVIDER]
 
